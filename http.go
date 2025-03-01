@@ -45,11 +45,15 @@ func init() {
 			}
 			newReq.Header = req.Header
 
+			// 修改Transport配置，添加HTTP/2支持
+			transport := &http.Transport{
+				DialContext: dialer.DialContext,
+				ForceAttemptHTTP2: true,
+			}
+
 			// 设置自定义拨号器的 HTTP 客户端
 			client := &http.Client{
-				Transport: &http.Transport{
-					DialContext: dialer.DialContext,
-				},
+				Transport: transport,
 			}
 
 			// 发送 HTTP 请求
