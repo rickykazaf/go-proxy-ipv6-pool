@@ -1,18 +1,68 @@
 package main
 
 import (
+	"encoding/base64"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/elazarl/goproxy"
 )
 
 var httpProxy = goproxy.NewProxyHttpServer()
 
+// 添加用户名密码配置
+var (
+	proxyUser     string // 从命令行参数获取
+	proxyPassword string // 从命令行参数获取
+)
+
+// 验证函数
+func basicAuth(auth string) bool {
+	if proxyUser == "" && proxyPassword == "" {
+		return true // 如果没有设置用户名密码，则允许所有连接
+	}
+	
+	if auth == "" {
+		return false
+	}
+	
+	// Basic Authentication
+	const prefix = "Basic "
+	if !strings.HasPrefix(auth, prefix) {
+		return false
+	}
+	
+	decoded, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return false
+	}
+	
+	credentials := strings.SplitN(string(decoded), ":", 2)
+	if len(credentials) != 2 {
+		return false
+	}
+	
+	return credentials[0] == proxyUser && credentials[1] == proxyPassword
+}
+
 func init() {
 	httpProxy.Verbose = true
+
+	// 添加认证检查
+	httpProxy.OnRequest().Do(goproxy.FuncReqHandler(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		// 检查认证信息
+		if !basicAuth(req.Header.Get("Proxy-Authorization")) {
+			// 返回 407 Proxy Authentication Required
+			return req, goproxy.NewResponse(req,
+				goproxy.ContentTypeText,
+				407,
+				"Proxy Authentication Required")
+		}
+		return req, nil
+	}))
 
 	httpProxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
@@ -65,6 +115,18 @@ func init() {
 			return req, resp
 		},
 	)
+
+	// 修改 CONNECT 处理，添加认证
+	httpProxy.OnRequest().HandleConnectFunc(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+		if !basicAuth(ctx.Req.Header.Get("Proxy-Authorization")) {
+			ctx.Resp = goproxy.NewResponse(ctx.Req,
+				goproxy.ContentTypeText,
+				407,
+				"Proxy Authentication Required")
+			return goproxy.RejectConnect, host
+		}
+		return goproxy.OkConnect, host
+	})
 
 	httpProxy.OnRequest().HijackConnect(
 		func(req *http.Request, client net.Conn, ctx *goproxy.ProxyCtx) {

@@ -12,11 +12,15 @@ import (
 
 var cidr string
 var port int
+var proxyUser string
+var proxyPassword string
 
 func main() {
 
 	flag.IntVar(&port, "port", 52122, "server port")
 	flag.StringVar(&cidr, "cidr", "", "ipv6 cidr")
+	flag.StringVar(&proxyUser, "user", "", "proxy username")
+	flag.StringVar(&proxyPassword, "password", "", "proxy password")
 	flag.Parse()
 
 	if cidr == "" {
