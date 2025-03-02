@@ -1,4 +1,6 @@
 #!/bin/bash
+# 安装golang
+sudo apt install golang -y
 
 # 获取 IPv6 地址
 IPV6=$(ip -6 addr show eth0 | grep "scope global" | awk '{print $2}' | cut -d'/' -f1)
@@ -56,3 +58,8 @@ echo "可以使用以下命令查看日志："
 echo "tail -f ipv6proxy.log"
 
 echo "配置完成！"
+
+# netstat -tunlp | grep 1552
+# lsof -i :1552
+# chmod +x run.sh
+# ./run.sh
