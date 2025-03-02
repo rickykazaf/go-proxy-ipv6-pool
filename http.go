@@ -13,12 +13,6 @@ import (
 
 var httpProxy = goproxy.NewProxyHttpServer()
 
-// 添加用户名密码配置
-var (
-	proxyUser     string // 从命令行参数获取
-	proxyPassword string // 从命令行参数获取
-)
-
 // 验证函数
 func basicAuth(auth string) bool {
 	if proxyUser == "" && proxyPassword == "" {
@@ -50,6 +44,9 @@ func basicAuth(auth string) bool {
 
 func init() {
 	httpProxy.Verbose = true
+
+	// 添加日志验证参数
+	log.Printf("Proxy authentication configured - User: %s, Password: %s", proxyUser, proxyPassword)
 
 	// 添加认证检查
 	httpProxy.OnRequest().Do(goproxy.FuncReqHandler(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {

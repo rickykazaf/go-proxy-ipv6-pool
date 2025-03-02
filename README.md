@@ -18,5 +18,10 @@ kill -9 $(ps -ef | grep ipv6proxy | grep -v grep | awk '{print $2}')
 ##  CURL查看ip
 ```
 curl -v -x http://ip:1552 http://ipv6.ip.mir6.com/
+curl -v -x http://kocaptcha:wuyao666@144.126.146.97:1552 http://ipv6.ip.mir6.com/
 ```
 
+## 查看日志
+```
+tail -f ipv6proxy.log
+```
