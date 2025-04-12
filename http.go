@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"bytes"
+	"io/ioutil"
 
 	"github.com/elazarl/goproxy"
 )
@@ -15,6 +17,7 @@ var httpProxy = goproxy.NewProxyHttpServer()
 
 // 验证函数
 func basicAuth(auth string) bool {
+	// 如果没有设置用户名密码，则允许所有连接
 	if proxyUser == "" && proxyPassword == "" {
 		return true // 如果没有设置用户名密码，则允许所有连接
 	}
@@ -42,6 +45,26 @@ func basicAuth(auth string) bool {
 	return credentials[0] == proxyUser && credentials[1] == proxyPassword
 }
 
+// 读取并打印请求体，同时返回一个新的请求体供后续使用
+func readAndPrintRequestBody(req *http.Request) (io.ReadCloser, error) {
+	// 读取请求体
+	bodyBytes, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 打印请求URL和请求体
+	log.Printf("[HTTP请求] URL: %s", req.URL.String())
+	log.Printf("[HTTP请求] 方法: %s", req.Method)
+	log.Printf("[HTTP请求] 请求体: %s", string(bodyBytes))
+	
+	// 创建一个新的请求体，因为原来的已经被读取了
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	
+	// 返回一个新的请求体供后续使用
+	return req.Body, nil
+}
+
 func init() {
 	httpProxy.Verbose = true
 
@@ -63,6 +86,19 @@ func init() {
 
 	httpProxy.OnRequest().DoFunc(
 		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			// 打印请求URL和请求体
+			if req.Body != nil {
+				var err error
+				req.Body, err = readAndPrintRequestBody(req)
+				if err != nil {
+					log.Printf("[HTTP] 读取请求体错误: %v", err)
+				}
+			} else {
+				log.Printf("[HTTP请求] URL: %s", req.URL.String())
+				log.Printf("[HTTP请求] 方法: %s", req.Method)
+				log.Printf("[HTTP请求] 请求体: 空")
+			}
+			
 			// 为 IPv6 地址添加方括号
 			outgoingIP, err := generateRandomIPv6(cidr)
 			if err != nil {
@@ -109,6 +145,10 @@ func init() {
 				log.Printf("[http] Send request error: %v", err)
 				return req, nil
 			}
+			
+			// 打印响应状态码
+			log.Printf("[HTTP响应] 状态码: %d", resp.StatusCode)
+			
 			return req, resp
 		},
 	)
@@ -127,6 +167,9 @@ func init() {
 
 	httpProxy.OnRequest().HijackConnect(
 		func(req *http.Request, client net.Conn, ctx *goproxy.ProxyCtx) {
+			// 打印CONNECT请求的URL
+			log.Printf("[CONNECT请求] URL: %s", req.URL.String())
+			
 			// 通过代理服务器建立到目标服务器的连接
 			outgoingIP, err := generateRandomIPv6(cidr)
 			if err != nil {
